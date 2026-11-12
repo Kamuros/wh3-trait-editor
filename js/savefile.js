@@ -184,10 +184,9 @@
         throw new Error('edits inside nested compressed blocks are not supported');
       }
       const packed = await Lzma.encode(raw, child.entry.props, (f) => progress('Compressing edited data…', f));
-      const check = await Lzma.decode(packed, child.entry.props, raw.length, (f) => progress('Checking compressed data…', f));
-      if (!bytesEqual(check, raw)) {
-        throw new Error('self-check failed: recompressed data does not decode back to the edited data');
-      }
+      // verify() re-reads the final file and compares every decompressed byte
+      // against the original plus requested edits. Do that authoritative check
+      // once, after all containers have been rebuilt, rather than decoding twice.
       replacements.push({ entry: child.entry, bytes: packed });
     }
 
@@ -212,7 +211,7 @@
     return replacements.length ? Esf.applyReplacements(buf, replacements) : buf;
   }
 
-  /** edits: Map(character → new innate key). Returns the bytes of the edited save. */
+  /** Construct edited bytes. Callers must await verify() before exporting them. */
   async function build(model, edits, progress) {
     if (edits.size && model.editBlockers.length) throw new Error(model.editBlockers.join(' '));
     const editsBySegment = new Map(), dirty = new Set();

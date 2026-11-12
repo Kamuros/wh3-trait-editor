@@ -25,6 +25,9 @@ async function test(bytes) {
  assert(Buffer.from(await Save.build(unknown,new Map(),async()=>{})).equals(Buffer.from(unknown.root.buf)));
  const unsafe=fixture();unsafe.fill(0xff,20,28);
  await assert.rejects(()=>Save.load(unsafe,async()=>{}),/integer range|oversized|recognised/);
+ const unsafeChild=fixture(); let body=20; while(unsafeChild[body++]&128) {}
+ unsafeChild.fill(0xff,body+4,body+12);
+ await assert.rejects(()=>Save.load(unsafeChild,async()=>{}),/integer range|oversized/);
  const partial=fixture(); const opaque=partial.indexOf(Buffer.from('09ffffffffffffffff','hex')); assert(opaque>0); partial[opaque]=0x11;
  const incomplete=await Save.load(Uint8Array.from(partial),async()=>{});
  assert(incomplete.editBlockers.some(s=>s.includes('fully read')));

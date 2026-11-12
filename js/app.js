@@ -24,7 +24,13 @@
       state.progressStage = label;
       status('export-status', label);
     }
-    return new Promise(resolve => setTimeout(resolve, 0));
+    // Yield to rendering/input without the nested setTimeout minimum delay.
+    if (window.scheduler && typeof window.scheduler.yield === 'function') return window.scheduler.yield();
+    return new Promise(resolve => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => { channel.port1.close(); channel.port2.close(); resolve(); };
+      channel.port2.postMessage(null);
+    });
   }
   function setBusy(value) {
     state.busy = value;

@@ -191,9 +191,16 @@
     let depth = -1, anchorDepth = -1, anchorCap = null, rootKind = 'var', vp = 0;
 
     function readVar(pos) {
-      const result = readVarAt(buf, pos);
-      vp = pos + result.len;
-      return result.value;
+      // Hot path: retain exact-integer/bounds checks without allocating a result
+      // object for every record and array in a large campaign.
+      let value = 0, length = 0;
+      while (true) {
+        if (pos >= buf.length || length++ >= 8) throw new Error('Truncated or oversized record length');
+        const byte = buf[pos++];
+        value = value * 128 + (byte & 0x7f);
+        if (!Number.isSafeInteger(value)) throw new Error('Record length exceeds exact integer range');
+        if (!(byte & 0x80)) { vp = pos; return value; }
+      }
     }
 
     function pathString(upTo) {
