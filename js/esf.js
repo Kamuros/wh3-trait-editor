@@ -1,13 +1,13 @@
 /*
- * Reader for the "ABCA" ESF container used by Total War save files.
+ * Reader for the "ABCA" and "ABCB" ESF containers used by Total War save files.
  *
  * It does not build a node tree. It walks the structure once, collects only what
  * the editor needs, and remembers where the size fields are so that a compressed
  * block can later be swapped without re-serialising anything else.
  *
- * Layout knowledge comes from EditSF's EsfLibrary and RPFM's ESF module (from
- * memory, not verified against a Warhammer III save). Anything that does not
- * match is contained per record and reported in the scan statistics.
+ * ABCB string widths were checked against RPFM and a real WH3 save.
+ * See docs/save-format.md for observations and remaining limits. Unexpected
+ * nodes are contained per record and reported in the scan statistics.
  */
 (function (global) {
   'use strict';
@@ -20,7 +20,7 @@
     innatePattern: /_skill_innate_/,        // innate traits are background skills
   });
 
-  const SIGNATURE_ABCA = 0xABCA;
+  const SIGNATURE_ABCA = 0xABCA, SIGNATURE_ABCB = 0xABCB;
   const HEADER_SIZE = 16;
   const FOOTER_OFFSET_POS = 12;
   const MAX_DEPTH = 512;
@@ -60,14 +60,17 @@
     if (buf.length < HEADER_SIZE + 8) throw new Error('file is too small to be an ESF container');
     const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     const signature = dv.getUint32(0, true);
-    if (signature !== SIGNATURE_ABCA) {
-      throw new Error(`unsupported container signature 0x${signature.toString(16).toUpperCase()} (expected 0xABCA)`);
+    if (signature !== SIGNATURE_ABCA && signature !== SIGNATURE_ABCB) {
+      throw new Error(`unsupported container signature 0x${signature.toString(16).toUpperCase()} (expected 0xABCA or 0xABCB)`);
     }
     const footerOffset = dv.getUint32(FOOTER_OFFSET_POS, true);
     if (footerOffset < HEADER_SIZE + 4 || footerOffset >= buf.length) {
       throw new Error('record-name table offset is out of range');
     }
 
+    // Record-name lengths remain u16 in both formats; value strings use u32 in ABCB.
+    const stringLengthBytes = signature === SIGNATURE_ABCB ? 4 : 2;
+    const readStringLength = (pos) => stringLengthBytes === 4 ? dv.getUint32(pos, true) : dv.getUint16(pos, true);
     const names = [], utf16 = new Map(), ascii = new Map(), asciiIndex = new Map();
     let p = footerOffset;
     try {
@@ -78,13 +81,13 @@
       }
       const utf16Count = dv.getUint32(p, true); p += 4;
       for (let i = 0; i < utf16Count; i++) {
-        const len = dv.getUint16(p, true) * 2; p += 2;
+        const len = readStringLength(p) * 2; p += stringLengthBytes;
         const text = utf16le.decode(buf.subarray(p, p + len)); p += len;
         utf16.set(dv.getUint32(p, true), text); p += 4;
       }
       const asciiCount = dv.getUint32(p, true); p += 4;
       for (let i = 0; i < asciiCount; i++) {
-        const len = dv.getUint16(p, true); p += 2;
+        const len = readStringLength(p); p += stringLengthBytes;
         const text = latin1.decode(buf.subarray(p, p + len)); p += len;
         const index = dv.getUint32(p, true); p += 4;
         ascii.set(index, text);
@@ -94,7 +97,7 @@
       if (err instanceof RangeError) throw new Error('string tables are truncated or not in the expected layout');
       throw err;
     }
-    return { buf, dv, footerOffset, names, utf16, ascii, asciiIndex, trailingBytes: buf.length - p };
+    return { buf, dv, signature, footerOffset, names, utf16, ascii, asciiIndex, trailingBytes: buf.length - p };
   }
 
   function readVarAt(buf, pos) {

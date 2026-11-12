@@ -2,7 +2,7 @@
 
 Experimental browser-based innate trait editor for Total War: WARHAMMER III saves. This replaces the original Python command-line prototype; that version remains in Git history.
 
-**Not validated against a real WH3 save or in game. Keep backups and use copies.** Parsing and character detection rely on unverified format assumptions, including heuristic field detection. Unknown node types are skipped within their record and reported in Diagnostics. Successful parsing or output verification does not prove game compatibility.
+**Parsing and an edit/rebuild round trip have been checked against one real WH3 ABCB save. In-game loading remains unverified. Keep backups and use copies.** Character detection still includes heuristic field detection. Unknown node types are skipped within their record and reported in Diagnostics. Successful parsing or output verification does not prove game compatibility.
 
 ## Run locally
 
@@ -41,7 +41,7 @@ Uploading these files does not itself enable GitHub Pages.
 
 ## Verification limits
 
-Repository preparation checks JavaScript syntax and synthetic compression cases. Browser interaction, real saves, inferred subtype accuracy, and in-game loading still require validation. If loading fails or the detected characters look wrong, capture the Diagnostics text.
+Run `node tests/esf-format.cjs` for format regression checks. JavaScript syntax, synthetic compression cases, and one real ABCB save edit/rebuild round trip have passed. See [observed save structure and validation](docs/save-format.md) for details. Browser interaction and in-game loading remain unverified. The discovered family-tree records are not necessarily active heroes; faction display may be unknown. If loading fails or characters look wrong, capture Diagnostics.
 
 Game saves and local environment files are excluded by `.gitignore`. No game data is included.
 

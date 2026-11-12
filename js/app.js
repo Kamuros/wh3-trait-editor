@@ -132,7 +132,7 @@
     const lines = [];
     for (const seg of state.model.segments) {
       const st = seg.scanStats;
-      lines.push(`[${seg.label}] ${formatBytes(seg.buf.length)}, ${st.records} records, ${seg.names.length} record names, ` +
+      lines.push(`[${seg.label}] ESF 0x${seg.signature.toString(16).toUpperCase()}, ${formatBytes(seg.buf.length)}, ${st.records} records, ${seg.names.length} record names, ` +
         `${seg.ascii.size} ASCII / ${seg.utf16.size} UTF-16 strings, ${st.innateStrings} innate-like keys`);
       if (!seg.names.includes(window.TwEsf.CONFIG.anchorRecord)) lines.push(`  no "${window.TwEsf.CONFIG.anchorRecord}" record name in this section`);
       if (st.partialRecords) {

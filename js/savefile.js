@@ -99,6 +99,13 @@
         if (!subtype || cand.distinct < subtype.distinct) subtype = cand;
       }
     }
+    // In the observed WH3 CHARACTER_DETAILS layout, subtype follows agent type.
+    // The same subtype can occur with different agent types, so the generic
+    // functional-dependency heuristic can wrongly select an art-set field.
+    const adjacent = candidates.find((c) => c.ordinal === typeOrdinal + 1);
+    if (typeOrdinal === 12 && adjacent && adjacent.complete &&
+        characters.every((ch) => /^wh\d?_/.test(ch.direct.get(adjacent.ordinal)) &&
+          !ch.direct.get(adjacent.ordinal).includes('_art_set_'))) subtype = adjacent;
     return { typeOrdinal, subtypeOrdinal: subtype ? subtype.ordinal : null, candidates };
   }
 
