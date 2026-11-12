@@ -9,7 +9,11 @@
   const LORD_AGENT_TYPE = 'general';
   const ASCII_NODE = 0x0f;
 
+  const MAX_INPUT_BYTES = 64 * 1024 * 1024;
+  const MAX_EXPANDED_BYTES = 256 * 1024 * 1024;
   async function loadSegment(model, buf, parentLink, label, progress) {
+    model.expandedBytes += buf.length;
+    if (model.expandedBytes > MAX_EXPANDED_BYTES || model.segments.length >= 8) throw new Error('Save exceeds the 256 MiB expanded / 8-container limit.');
     const seg = Esf.parseContainer(buf);
     const result = Esf.scan(seg);
     seg.label = label;
@@ -29,6 +33,8 @@
       const child = { entry, segment: null };
       seg.children.push(child);
       try {
+        if (!Number.isSafeInteger(entry.uncompressedSize) || entry.uncompressedSize < 0 ||
+            model.expandedBytes + entry.uncompressedSize > MAX_EXPANDED_BYTES) throw new Error('Expanded save exceeds the 256 MiB limit.');
         const packed = buf.subarray(entry.dataStart, entry.dataStart + entry.dataLen);
         const raw = await Lzma.decode(packed, entry.props, entry.uncompressedSize,
           (f) => progress(`Decompressing ${entry.path}…`, f));
@@ -42,7 +48,8 @@
   }
 
   async function load(bytes, progress) {
-    const model = { segments: [], characters: [], problems: [], root: null };
+    if (bytes.length > MAX_INPUT_BYTES) throw new Error('Save exceeds the 64 MiB input limit.');
+    const model = { expandedBytes: 0, segments: [], characters: [], problems: [], root: null };
     model.root = await loadSegment(model, bytes, null, 'save file', progress);
     const meta = model.segments.map((s) => s.metadata);
     model.playerFaction = meta.find((m) => m.localFaction)?.localFaction || meta.find((m) => m.headerFaction)?.headerFaction || '';
@@ -61,6 +68,15 @@
       }
     }
     model.playerCharacters = model.playerFaction ? model.characters.filter((c) => c.faction === model.playerFaction && !c.internalCommander) : [];
+    model.gameVersion = meta.find(m => m.gameVersion)?.gameVersion || '';
+    model.editBlockers = [];
+    if (meta.some(m => m.gameVersion && m.gameVersion !== model.gameVersion)) model.editBlockers.push('Read-only: container version labels disagree.');
+    if (!/^v9\.0\.5\s+Build 51143\.4399233(?:\s|$)/.test(model.gameVersion)) {
+      model.editBlockers.push(`Read-only: ${model.gameVersion || 'unknown game version'}. Only v9.0.5 Build 51143.4399233 has been structurally tested.`);
+    }
+    if (model.problems.length || model.segments.some(s => s.scanStats.partialRecords || s.scanStats.malformedRecords || s.scanStats.incompleteCompressed)) {
+      model.editBlockers.push('Read-only: some save records could not be fully read. Use a supported save and report Technical details.');
+    }
     return model;
   }
 
@@ -143,7 +159,8 @@
 
   /** Traits this character may take: seen on its own subtype and present in its string table. */
   function optionsFor(ch, pools, subtypeOrdinal) {
-    if (!ch.innateKey || subtypeOrdinal === null) return [];
+    // The only editable build has a verified subtype field at ordinal 13.
+    if (!ch.innateKey || subtypeOrdinal !== 13) return [];
     const pool = pools.get(ch.direct.get(subtypeOrdinal));
     if (!pool) return [];
     return [...pool.entries()]
@@ -197,9 +214,12 @@
 
   /** edits: Map(character → new innate key). Returns the bytes of the edited save. */
   async function build(model, edits, progress) {
+    if (edits.size && model.editBlockers.length) throw new Error(model.editBlockers.join(' '));
     const editsBySegment = new Map(), dirty = new Set();
+    const allowedPools = buildPools(model.characters, 13);
     for (const [ch, key] of edits) {
-      if (!ch.innateKey) throw new Error('attempted to edit an ambiguous character');
+      if (!model.characters.includes(ch) || !ch.innateKey) throw new Error('Unknown or ambiguous character.');
+      if (!optionsFor(ch, allowedPools, 13).some(option => option.key === key)) throw new Error('Trait is not observed for this character subtype.');
       if (!editsBySegment.has(ch.segment)) editsBySegment.set(ch.segment, []);
       editsBySegment.get(ch.segment).push({ ch, key });
       for (let s = ch.segment; s; s = s.parentLink ? s.parentLink.parent : null) dirty.add(s);
@@ -211,6 +231,29 @@
   async function verify(outputBytes, model, edits, progress) {
     const check = await load(outputBytes, (label, f) => progress(`Verifying: ${label}`, f));
     const problems = check.problems.slice();
+    if (!edits.size && !bytesEqual(outputBytes, model.root.buf)) problems.push('No-edit export is not byte-identical.');
+    if (check.segments.length !== model.segments.length) return [...problems, 'Container count changed.'];
+    // Compare every byte. Compressed streams and their enclosing lengths may change;
+    // reconstruct only those regions from the output, then compare everything else.
+    for (let i = 0; i < model.segments.length; i++) {
+      const before = model.segments[i], after = check.segments[i];
+      if (before.children.length !== after.children.length) { problems.push('Compressed-block count changed.'); continue; }
+      let expectedBytes = before.buf.slice();
+      const dv = new DataView(expectedBytes.buffer);
+      for (const [ch, key] of edits) if (ch.segment === before) {
+        const index = before.asciiIndex.get(key);
+        if (index === undefined) { problems.push('Edited key missing from original string table.'); continue; }
+        for (const offset of ch.offsets) dv.setUint32(offset, index, true);
+      }
+      const replacements = before.children.map((child, j) => {
+        const entry = after.children[j].entry;
+        return { entry: child.entry, bytes: after.buf.subarray(entry.dataStart, entry.dataStart + entry.dataLen) };
+      });
+      if (replacements.length && !bytesEqual(before.buf, after.buf)) expectedBytes = Esf.applyReplacements(expectedBytes, replacements);
+      if (!bytesEqual(expectedBytes, after.buf)) problems.push(`Unexpected byte changes in ${before.label}.`);
+      if (after.scanStats.malformedRecords || after.scanStats.partialRecords) problems.push('Output contains unread records.');
+      await progress('Checking unchanged save data…', (i + 1) / model.segments.length);
+    }
     if (check.characters.length !== model.characters.length) {
       problems.push(`character count changed (${model.characters.length} → ${check.characters.length})`);
       return problems;
@@ -225,5 +268,5 @@
     return problems;
   }
 
-  global.TwSave = { LORD_AGENT_TYPE, load, detectFields, buildPools, optionsFor, build, verify };
+  global.TwSave = { MAX_INPUT_BYTES, LORD_AGENT_TYPE, load, detectFields, buildPools, optionsFor, build, verify };
 })(window);

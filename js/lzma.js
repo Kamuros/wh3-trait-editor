@@ -12,7 +12,7 @@
 
   const PROB_INIT = 1024;
   const TOP = 0x1000000;
-  const CHUNK = 1 << 22; // bytes processed between progress callbacks
+  const CHUNK = 1 << 18; // bytes processed between progress callbacks
 
   // Offsets into one shared probability table.
   const IS_MATCH = 0;                       // 12 states * 16 pos states
@@ -50,13 +50,19 @@
   async function decode(input, props, outSize, onProgress) {
     const { lc, lp, pb, dictSize } = parseProps(props);
     if (input.length < 5 || input[0] !== 0) throw new Error('LZMA: data does not start like a raw LZMA stream');
+    if (!Number.isSafeInteger(outSize) || outSize < 0 || outSize > 256 * 1024 * 1024) throw new Error('LZMA: declared size exceeds the 256 MiB limit');
     const probs = newProbs(lc, lp);
     const out = new Uint8Array(outSize);
     const pbMask = (1 << pb) - 1, lpMask = (1 << lp) - 1, lcShift = 8 - lc;
 
     let inPos = 1, range = 0xFFFFFFFF, code = 0;
-    for (let i = 0; i < 4; i++) code = ((code << 8) | input[inPos++]) >>> 0;
+    for (let i = 0; i < 4; i++) code = ((code << 8) | nextByte()) >>> 0;
     let state = 0, rep0 = 0, rep1 = 0, rep2 = 0, rep3 = 0, outPos = 0;
+
+    function nextByte() {
+      if (inPos >= input.length) throw new Error('LZMA: truncated stream');
+      return input[inPos++];
+    }
 
     function bit(i) {
       const p = probs[i];
@@ -74,7 +80,7 @@
       }
       if (range < TOP) {
         range = (range << 8) >>> 0;
-        code = ((code << 8) | input[inPos++]) >>> 0;
+        code = ((code << 8) | nextByte()) >>> 0;
       }
       return result;
     }
@@ -103,7 +109,7 @@
         if (code >= range) { code -= range; result |= 1; }
         if (range < TOP) {
           range = (range << 8) >>> 0;
-          code = ((code << 8) | input[inPos++]) >>> 0;
+          code = ((code << 8) | nextByte()) >>> 0;
         }
       }
       return result;

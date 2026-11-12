@@ -26,6 +26,9 @@ function pack(compressed) {
  }
  assert.equal((await L.readFile(file(loc, 'names.loc'))).size, 2);
  assert.equal((await L.readFile(file(Buffer.from('key\ttext\n#metadata\nnames_name_1\tActual Name\n'), 'names.tsv'))).get('names_name_1'), 'Actual Name');
+ for (const bytes of [Buffer.from('\uFEFFkey\ttext\r\nnames_name_2\tBOM Name\r\n'), Buffer.from('\uFEFFkey\ttext\nnames_name_2\tBOM Name\n','utf16le')]) {
+  assert.equal((await L.readFile(file(bytes,'bom.tsv'))).get('names_name_2'),'BOM Name');
+ }
  assert.equal(L.trait(new Map(), 'wh2_main_skill_innate_all_cunning'), 'Cunning');
  assert.equal(L.trait(new Map([['character_skills_localised_name_wh2_main_skill_innate_all_cunning','Official label']]), 'wh2_main_skill_innate_all_cunning'), 'Official label');
  assert.equal(L.trait(new Map(), 'wh2_dlc09_skill_innate_tmb_cavalry_master'), 'Cavalry Master');

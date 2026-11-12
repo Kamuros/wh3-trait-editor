@@ -101,12 +101,14 @@
   }
 
   function readVarAt(buf, pos) {
-    let value = 0, len = 0, b;
-    do {
-      b = buf[pos + len++];
-      value = value * 128 + (b & 0x7f);
-    } while ((b & 0x80) && len < 9);
-    return { value, len };
+    let value = 0, len = 0;
+    while (true) {
+      if (pos + len >= buf.length || len >= 8) throw new Error('Truncated or oversized record length');
+      const byte = buf[pos + len++];
+      value = value * 128 + (byte & 0x7f);
+      if (!Number.isSafeInteger(value)) throw new Error('Record length exceeds exact integer range');
+      if (!(byte & 0x80)) return { value, len };
+    }
   }
 
   function encodeVar(value) {
@@ -174,7 +176,7 @@
       unknownTypes: new Map(), strayInnate: new Map(), innateStrings: innate.size,
     };
     const characters = [], compressed = [];
-    const metadata = { headerFaction: '', factionLabel: '', localFaction: '', players: [], roster: [] };
+    const metadata = { headerFaction: '', factionLabel: '', localFaction: '', gameVersion: '', players: [], roster: [] };
     const metadataNames = new Set(['SAVE_GAME_HEADER', 'CAMPAIGN_SETUP_LOCAL', 'CAMPAIGN_PLAYER_SETUP',
       'CHARACTER', 'CHARACTER_NAME_ELEMENT', 'CAMPAIGN_LOCALISATION']);
     const sMeta = new Array(MAX_DEPTH).fill(null);
@@ -189,13 +191,9 @@
     let depth = -1, anchorDepth = -1, anchorCap = null, rootKind = 'var', vp = 0;
 
     function readVar(pos) {
-      let value = 0, n = 0, b;
-      do {
-        b = buf[pos++];
-        value = value * 128 + (b & 0x7f);
-      } while ((b & 0x80) && ++n < 9);
-      vp = pos;
-      return value;
+      const result = readVarAt(buf, pos);
+      vp = pos + result.len;
+      return result.value;
     }
 
     function pathString(upTo) {
@@ -276,6 +274,7 @@
         if (recordName === 'SAVE_GAME_HEADER') {
           metadata.headerFaction = fields.get(0) || '';
           metadata.factionLabel = fields.get(7) || '';
+          metadata.gameVersion = fields.get(14) || '';
         } else if (recordName === 'CAMPAIGN_SETUP_LOCAL') metadata.localFaction = fields.get(0) || '';
         else if (recordName === 'CAMPAIGN_PLAYER_SETUP' && fields.get(6) === 'FULL_HUMAN') metadata.players.push(fields.get(1));
         else if (recordName === 'CHARACTER') {

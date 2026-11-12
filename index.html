@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WH3 · Your faction’s innate traits</title>
   <link rel="stylesheet" href="style.css">
@@ -20,13 +21,14 @@
         <input type="file" id="file" accept=".save">
         <span>Choose a .save file or drop it here</span>
       </label>
-      <div id="progress" hidden><div class="bar"><div id="bar-fill"></div></div><span id="progress-label"></span></div>
+      <div id="progress" hidden><progress id="load-meter" max="1" value="0" aria-label="Loading progress"></progress><span id="progress-label" role="status"></span></div>
       <p id="status" role="status"></p>
     </section>
     <section class="card" id="summary-section" hidden>
       <p class="eyebrow">YOUR FACTION</p>
       <h2 id="faction-name"></h2>
       <div id="summary"></div>
+      <p id="compatibility" role="status"></p>
       <details id="language-panel" open>
         <summary>Show in-game names and trait labels</summary>
         <p>The save often stores name IDs, not the names shown in game. Select your game’s <code>local_en.pack</code> (or your language’s <code>local_*.pack</code>) from <code>Total War WARHAMMER III/data</code>. You can also select exported <code>.loc</code> or localisation <code>.tsv</code> files.</p>
@@ -43,17 +45,24 @@
       </div>
       <p class="note">Only your faction’s records are listed. Alternatives are traits already found on the same character type elsewhere in this save; they are not a complete game database.</p>
       <p id="table-note" role="status"></p>
-      <div class="table-wrap"><table>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Character traits"><table>
         <thead><tr><th>Character</th><th>Character type</th><th>Current trait</th><th>Change to</th></tr></thead>
         <tbody id="rows"></tbody>
       </table></div>
     </section>
     <section class="card" id="export-section" hidden>
       <h2>3. Download your edited save</h2>
-      <p id="pending"></p>
+      <p id="pending" role="status"></p>
+      <p class="note">Close the game before copying the edited file into your saves folder. Keep a backup; Steam/cloud sync may replace files. Selections are held only in this tab and are lost on reload.</p>
+      <div id="export-progress" hidden>
+        <progress id="export-meter" max="1" value="0" aria-label="Current export stage"></progress>
+        <p id="export-progress-label"></p>
+        <p class="note">Working locally. Keep this tab open; large saves can take a minute or more.</p>
+      </div>
       <button id="build" disabled>Verify and download edited save</button>
       <button id="reset" class="secondary">Clear changes</button>
-      <p id="export-status" role="status"></p>
+      <p id="export-status" role="status" aria-live="polite" aria-atomic="true"></p>
+      <a id="download-again" hidden>Download again</a>
     </section>
     <details class="card" id="technical-section" hidden>
       <summary>Technical details</summary>
@@ -63,7 +72,7 @@
     </details>
   </main>
   <footer>Unofficial fan tool. Not affiliated with Creative Assembly or Games Workshop.</footer>
-  <script src="js/vendor/fzstd.js"></script>
+  <script src="js/vendor/fzstd.js" integrity="sha384-j11FJIL1HatEZOwEloCeZcNzDESMGs1ncTc2Kt0LgG0QpBU7lZHgyGU0Mif1OHeH"></script>
   <script src="js/localisation.js"></script>
   <script src="js/lzma.js"></script>
   <script src="js/esf.js"></script>

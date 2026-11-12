@@ -1,0 +1,13 @@
+{
+  "provenance": "Original synthetic data only; not a real-game compatibility corpus.",
+  "files": {
+    "abca.esf": {
+      "bytes": 460,
+      "sha256": "bd187170c2e0c22f4febb3f91b29dac80f30c138e399f30ba614f753aafeb924"
+    },
+    "abcb.esf": {
+      "bytes": 474,
+      "sha256": "c497de24dcd92f84e0a3e99f1e0f5e8499056091557dc82c1c9dae36854cfef8"
+    }
+  }
+}

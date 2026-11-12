@@ -3,31 +3,45 @@
   'use strict';
   const Save = window.TwSave, Labels = window.TwLabels;
   const el = id => document.getElementById(id);
-  const state = { model: null, fileName: '', fields: null, subtypeOrdinal: null, pools: new Map(), labels: new Map(), edits: new Map(), busy: false };
+  const state = { model: null, fileName: '', fields: null, subtypeOrdinal: null, pools: new Map(), labels: new Map(), edits: new Map(), busy: false, exporting: false, downloadUrl: null, progressStage: '' };
   const type = ch => ch.direct.get(state.fields.typeOrdinal) || '';
   const subtype = ch => ch.direct.get(state.subtypeOrdinal) || '';
   const options = ch => Save.optionsFor(ch, state.pools, state.subtypeOrdinal);
   const trait = key => Labels.trait(state.labels, key);
   function status(id, message, kind = '') { el(id).textContent = message; el(id).className = kind; }
+  function clearDownload() {
+    if (state.downloadUrl) URL.revokeObjectURL(state.downloadUrl);
+    state.downloadUrl = null;
+    el('download-again').hidden = true;
+    el('download-again').removeAttribute('href');
+  }
   function progress(label, fraction) {
-    el('progress').hidden = false;
-    el('progress-label').textContent = label;
-    el('bar-fill').style.width = `${Math.round((fraction || 0) * 100)}%`;
+    const exporting = state.exporting;
+    el(exporting ? 'export-progress' : 'progress').hidden = false;
+    el(exporting ? 'export-meter' : 'load-meter').value = fraction || 0;
+    el(exporting ? 'export-progress-label' : 'progress-label').textContent = `${label} ${Math.round((fraction || 0) * 100)}%`;
+    if (exporting && label !== state.progressStage) {
+      state.progressStage = label;
+      status('export-status', label);
+    }
     return new Promise(resolve => setTimeout(resolve, 0));
   }
   function setBusy(value) {
     state.busy = value;
     for (const id of ['file', 'language', 'subtype-field', 'role', 'search', 'inactive', 'reset']) el(id).disabled = value;
     for (const select of el('rows').querySelectorAll('select')) select.disabled = value;
-    el('build').disabled = value || !state.edits.size;
+    el('build').disabled = value || !state.edits.size || Boolean(state.model?.editBlockers.length);
     if (!value) el('progress').hidden = true;
   }
   async function openFile(file) {
     if (state.busy || !file) return;
+    if (state.edits.size && !window.confirm('Opening another save clears your selected changes. Continue?')) return;
+    clearDownload();
     setBusy(true); state.model = null; state.edits.clear();
     status('status', ''); status('export-status', '');
     for (const id of ['summary-section', 'edit-section', 'export-section', 'technical-section']) el(id).hidden = true;
     try {
+      if (file.size > Save.MAX_INPUT_BYTES) throw new Error('Save exceeds the 64 MiB input limit. Use a smaller save.');
       const bytes = new Uint8Array(await file.arrayBuffer());
       await progress('Reading your save…', 0);
       state.model = await Save.load(bytes, progress);
@@ -38,6 +52,7 @@
       for (const candidate of [{ ordinal: '', samples: ['Not detected — editing disabled'] }, ...state.fields.candidates]) {
         const option = document.createElement('option');
         option.value = candidate.ordinal;
+        option.disabled = candidate.ordinal !== 13;
         option.textContent = candidate.ordinal === '' ? candidate.samples[0] : `Field ${candidate.ordinal}: ${candidate.samples.join(', ')}`;
         el('subtype-field').appendChild(option);
       }
@@ -46,9 +61,10 @@
       refresh();
       el('summary-section').hidden = false; el('technical-section').hidden = false;
       const available = Boolean(state.model.playerFaction);
+      status('compatibility', state.model.editBlockers.length ? state.model.editBlockers.join(' ') : `${state.model.gameVersion}. Structural tests passed on one sample only; DLC/mod eligibility and in-game results are not guaranteed.`, state.model.editBlockers.length ? 'error' : 'note');
       el('edit-section').hidden = !available; el('export-section').hidden = !available;
       status('status', available ? `Loaded ${file.name}.` : 'The player faction could not be identified. Editing is disabled; see Technical details.', available ? 'ok' : 'error');
-    } catch (err) { console.error(err); status('status', `Could not read this file: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); status('status', `Could not read this file: ${err.message} Select a supported .save file; keep the original unchanged.`, 'error'); }
     finally { setBusy(false); }
   }
   function refresh() {
@@ -87,7 +103,8 @@
     cell(row, Labels.subtype(state.labels, subtype(ch)), type(ch) === 'general' ? 'Lord' : 'Hero').title = subtype(ch);
     cell(row, ch.innateKey ? trait(ch.innateKey) : 'Multiple innate traits — editing disabled').title = ch.innateKeys.join(', ');
     const td = cell(row, ''), opts = options(ch);
-    if (opts.length < 2) td.textContent = 'No alternative found in this save';
+    if (state.model.editBlockers.length) td.textContent = 'Read-only — see version notice';
+    else if (opts.length < 2) td.textContent = 'No alternative found in this save';
     else {
       const select = document.createElement('select'); select.setAttribute('aria-label', `New trait for ${Labels.character(state.labels, ch)}`);
       for (const { key } of opts) {
@@ -98,6 +115,7 @@
       select.value = state.edits.get(ch) || ch.innateKey;
       select.addEventListener('change', () => {
         if (state.busy) return;
+        clearDownload(); status('export-status', '');
         if (select.value === ch.innateKey) state.edits.delete(ch); else state.edits.set(ch, select.value);
         row.classList.toggle('changed', state.edits.has(ch)); renderPending();
       }); td.appendChild(select);
@@ -111,7 +129,7 @@
   }
   function renderPending() {
     el('pending').textContent = state.edits.size ? `${state.edits.size} change(s) selected, including any hidden by your current filters.` : 'No changes selected.';
-    el('build').disabled = state.busy || !state.edits.size;
+    el('build').disabled = state.busy || !state.edits.size || Boolean(state.model?.editBlockers.length);
   }
   async function loadLanguage(files) {
     if (state.busy || !files.length) return;
@@ -130,22 +148,36 @@
   }
   async function buildAndDownload() {
     if (state.busy || !state.edits.size) return;
-    setBusy(true); status('export-status', '');
+    state.exporting = true; state.progressStage = ''; clearDownload();
+    setBusy(true); el('build').textContent = 'Preparing your save…';
     try {
+      await progress('Preparing your edited copy…', 0);
+      // Let the browser paint the busy state before the first CPU-heavy phase.
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       for (const [ch, key] of state.edits) {
         if (!state.model.playerCharacters.includes(ch) || !options(ch).some(o => o.key === key)) throw new Error('A selected change is not valid for your faction.');
       }
+      el('build').textContent = 'Building and verifying…';
       const out = await Save.build(state.model, state.edits, progress);
+      await progress('Re-reading the edited file…', 0);
       const problems = await Save.verify(out, state.model, state.edits, progress);
       if (problems.length) throw new Error(problems.slice(0, 3).join('; '));
       const name = state.fileName.replace(/\.save$/i, '') + '_edited.save';
-      const url = URL.createObjectURL(new Blob([out], { type: 'application/octet-stream' }));
+      await progress('Preparing download…', 1);
+      const url = state.downloadUrl = URL.createObjectURL(new Blob([out], { type: 'application/octet-stream' }));
       const a = document.createElement('a'); a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
-      status('export-status', `${name} verified and downloaded. Load the copy in game and check the trait and its effects.`, 'ok');
+      document.body.appendChild(a); a.click(); a.remove();
+      const retry = el('download-again'); retry.href = url; retry.download = name; retry.hidden = false;
+      status('export-status', `${name} is ready. Download requested—check your browser’s downloads. If it did not start, use “Download again”.`, 'ok');
     } catch (err) { console.error(err); status('export-status', `No file was produced: ${err.message}`, 'error'); }
-    finally { setBusy(false); }
+    finally {
+      state.exporting = false; el('export-progress').hidden = true;
+      el('build').textContent = 'Verify and download edited save'; setBusy(false);
+    }
   }
+  window.addEventListener('beforeunload', event => {
+    if (state.edits.size || state.busy) { event.preventDefault(); event.returnValue = ''; }
+  });
   el('file').addEventListener('change', e => openFile(e.target.files[0]));
   el('language').addEventListener('change', e => loadLanguage([...e.target.files]));
   const drop = el('drop');
@@ -154,7 +186,7 @@
   drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); openFile(e.dataTransfer.files[0]); });
   for (const id of ['role', 'inactive']) el(id).addEventListener('change', renderTable);
   el('search').addEventListener('input', renderTable);
-  el('subtype-field').addEventListener('change', e => { state.subtypeOrdinal = e.target.value === '' ? null : Number(e.target.value); state.edits.clear(); refresh(); });
+  el('subtype-field').addEventListener('change', e => { state.subtypeOrdinal = e.target.value === '' ? null : Number(e.target.value); state.edits.clear(); clearDownload(); refresh(); });
   el('build').addEventListener('click', buildAndDownload);
-  el('reset').addEventListener('click', () => { state.edits.clear(); renderTable(); renderPending(); });
+  el('reset').addEventListener('click', () => { state.edits.clear(); clearDownload(); status('export-status', ''); renderTable(); renderPending(); });
 })();
