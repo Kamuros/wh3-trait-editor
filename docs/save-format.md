@@ -51,7 +51,11 @@ Observed direct child field ordinals (zero-based node positions, not byte offset
 
 The previous dependency heuristic selected field 28 because some subtypes occur with multiple agent types. Detection now prefers the observed adjacent subtype field when its position and key shape match. Other layouts still use the heuristic and can be overridden in the UI.
 
-Faction display currently relies on an ancestor `FACTION` record. These family-tree records have no such ancestor, so the faction column remains unknown. Active status, faction-field semantics, and name resolution need further investigation.
+The UI now links these family-tree details to live `FACTION/CHARACTER_ARRAY/CHARACTER` records. In the observed layout, CHARACTER ordinal 3 references CHARACTER_DETAILS ordinal 22, while their character IDs (ordinals 1 and 4 respectively) also match. The containing FACTION supplies current ownership; a birthplace or previous-faction field is not used to override a live link. Details without a live link are considered reserve/inactive only when their character ID is zero, using details ordinal 3 for faction association. Nonzero unresolved links are excluded from the player list.
+
+`CAMPAIGN_SETUP_LOCAL` ordinal 0 identifies the local player faction, with `SAVE_GAME_HEADER` ordinal 0 as fallback. Header ordinal 7 contains a display label. In the sample, the result is Host of Nagash, with two active characters containing innate traits (Nagash and a Tomb Herald), plus 70 reserve/inactive records. Internal `colonel` records are excluded.
+
+Names are stored in `CHARACTER_NAME/CHARACTER_NAME_ELEMENT/CAMPAIGN_LOCALISATION`. Each element has a role (forename, family_name, etc.), a localisation key and sometimes explicit UTF-16 text. Resolve keys using the selected game language files; never infer a person's name from a numeric ID. The sample Tomb Herald name is a key-only reference, so its displayed name cannot be established from this save alone.
 
 A sampled character has two references to the same innate key. The editor updates both existing u32 indices; it does not add strings or rewrite the campaign's other fields.
 
@@ -65,4 +69,4 @@ A sampled character has two references to the same innate key. The editor update
 - The resulting test output was 10,625,729 bytes; the custom encoder produces different compressed bytes and may increase size.
 - Synthetic tests cover ABCA/ABCB string widths, Unicode, strings over 65,535 bytes, truncation, unsupported signatures, and subtype selection.
 
-These checks do not establish whether the game accepts the output or recalculates trait effects. Browser interaction was not tested in this investigation. Test an edited copy in game before relying on it.
+These checks do not establish whether the game accepts the output or recalculates trait effects. Browser checks are recorded in the README as they are completed; language-pack decoding uses synthetic fixtures because no real game language pack was supplied. Test an edited copy in game before relying on it.

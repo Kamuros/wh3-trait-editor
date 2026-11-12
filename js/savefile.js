@@ -16,6 +16,7 @@
     seg.parentLink = parentLink;
     seg.children = [];
     seg.scanStats = result.stats;
+    seg.metadata = result.metadata;
     model.segments.push(seg);
 
     for (const ch of result.characters) {
@@ -43,6 +44,23 @@
   async function load(bytes, progress) {
     const model = { segments: [], characters: [], problems: [], root: null };
     model.root = await loadSegment(model, bytes, null, 'save file', progress);
+    const meta = model.segments.map((s) => s.metadata);
+    model.playerFaction = meta.find((m) => m.localFaction)?.localFaction || meta.find((m) => m.headerFaction)?.headerFaction || '';
+    model.playerFactionLabel = meta.find((m) => m.headerFaction === model.playerFaction && m.factionLabel)?.factionLabel || '';
+    for (const seg of model.segments) {
+      const roster = new Map();
+      for (const entry of seg.metadata.roster) {
+        // Duplicate links are ambiguous; never use them to infer ownership.
+        roster.set(entry.detailsId, roster.has(entry.detailsId) ? null : entry);
+      }
+      for (const ch of model.characters.filter((c) => c.segment === seg)) {
+        const live = roster.get(ch.detailsId);
+        ch.active = Boolean(live && live.characterId === ch.characterId);
+        ch.faction = ch.active ? live.faction : (ch.characterId === 0 ? ch.direct.get(3) || '' : '');
+        ch.internalCommander = ch.direct.get(12) === 'colonel';
+      }
+    }
+    model.playerCharacters = model.playerFaction ? model.characters.filter((c) => c.faction === model.playerFaction && !c.internalCommander) : [];
     return model;
   }
 

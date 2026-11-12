@@ -9,3 +9,6 @@ __pycache__/
 *.tsv
 pool.json
 .DS_Store
+*.loc
+node_modules/
+.vs/

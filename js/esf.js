@@ -174,6 +174,10 @@
       unknownTypes: new Map(), strayInnate: new Map(), innateStrings: innate.size,
     };
     const characters = [], compressed = [];
+    const metadata = { headerFaction: '', factionLabel: '', localFaction: '', players: [], roster: [] };
+    const metadataNames = new Set(['SAVE_GAME_HEADER', 'CAMPAIGN_SETUP_LOCAL', 'CAMPAIGN_PLAYER_SETUP',
+      'CHARACTER', 'CHARACTER_NAME_ELEMENT', 'CAMPAIGN_LOCALISATION']);
+    const sMeta = new Array(MAX_DEPTH).fill(null);
     const fieldMap = new Map();
     const headerField = { pos: FOOTER_OFFSET_POS, len: 4, value: seg.footerOffset, kind: 'abs32', parent: null };
 
@@ -224,7 +228,7 @@
           break;
         }
       }
-      characters.push({ segment: seg, offsets, indices, innateKeys: [...keys], direct, texts: cap.texts, path: pathString(depth), context });
+      characters.push({ segment: seg, offsets, indices, innateKeys: [...keys], direct, texts: cap.texts, nameParts: cap.nameParts, detailsId: cap.detailsId, characterId: cap.characterId, path: pathString(depth), context });
     }
 
     function finishCompressed(cap) {
@@ -253,9 +257,10 @@
       const kind = kindOfName[nameIdx];
       sKind[depth] = kind;
       stats.records++;
+      sMeta[depth] = metadataNames.has(names[nameIdx]) ? new Map() : null;
       if (kind === KIND_ANCHOR) {
         if (anchorCap === null) {
-          anchorCap = { direct: [], occ: [], texts: [] };
+          anchorCap = { direct: [], occ: [], texts: [], nameParts: [], detailsId: null, characterId: null };
           anchorDepth = depth;
         }
       } else if (kind === KIND_COMPRESSED) {
@@ -266,6 +271,27 @@
     }
 
     function pop() {
+      const recordName = names[sName[depth]], fields = sMeta[depth];
+      if (fields) {
+        if (recordName === 'SAVE_GAME_HEADER') {
+          metadata.headerFaction = fields.get(0) || '';
+          metadata.factionLabel = fields.get(7) || '';
+        } else if (recordName === 'CAMPAIGN_SETUP_LOCAL') metadata.localFaction = fields.get(0) || '';
+        else if (recordName === 'CAMPAIGN_PLAYER_SETUP' && fields.get(6) === 'FULL_HUMAN') metadata.players.push(fields.get(1));
+        else if (recordName === 'CHARACTER') {
+          let faction = '';
+          for (let k = depth - 1; k >= 0; k--) if (sKind[k] === KIND_CONTEXT) {
+            faction = ascii.get(sFirstAscii[k]) || ''; break;
+          }
+          if (faction && Number.isInteger(fields.get(3))) metadata.roster.push({ faction, detailsId: fields.get(3), characterId: fields.get(1), type: fields.get(2) });
+        } else if (recordName === 'CAMPAIGN_LOCALISATION' && anchorCap && depth > 0 && names[sName[depth - 1]] === 'CHARACTER_NAME_ELEMENT') {
+          sMeta[depth - 1].set('localisation', { key: fields.get(0) || '', text: fields.get(1) || '' });
+        } else if (recordName === 'CHARACTER_NAME_ELEMENT' && anchorCap) {
+          const value = fields.get('localisation');
+          if (value) anchorCap.nameParts.push({ role: fields.get(1), ...value });
+        }
+      }
+      sMeta[depth] = null;
       const kind = sKind[depth];
       if (depth === anchorDepth) {
         finishCharacter();
@@ -283,6 +309,7 @@
 
     function onAscii(valuePos, ordinal) {
       const index = dv.getUint32(valuePos, true);
+      if (sMeta[depth]) sMeta[depth].set(ordinal, ascii.get(index));
       if (sFirstAscii[depth] < 0) sFirstAscii[depth] = index;
       if (anchorCap !== null) {
         if (depth === anchorDepth && anchorCap.direct.length < MAX_DIRECT_STRINGS * 2) anchorCap.direct.push(ordinal, index);
@@ -293,7 +320,8 @@
       }
     }
 
-    function onUtf16(valuePos) {
+    function onUtf16(valuePos, ordinal) {
+      if (sMeta[depth]) sMeta[depth].set(ordinal, utf16.get(dv.getUint32(valuePos, true)));
       if (anchorCap === null || anchorCap.texts.length >= MAX_TEXT_HINTS) return;
       const text = utf16.get(dv.getUint32(valuePos, true));
       if (text && !anchorCap.texts.includes(text)) anchorCap.texts.push(text);
@@ -359,8 +387,16 @@
           const size = PRIM_SIZE[type];
           if (size >= 0) {
             if (pos + size > end) { stats.malformedRecords++; return; }
+            if (type !== T_ASCII && type !== T_UTF16) {
+              const number = readUInt(seg, type, pos);
+              if (number !== null && sMeta[depth]) sMeta[depth].set(ordinal, number);
+              if (anchorCap && depth === anchorDepth) {
+                if (ordinal === 22) anchorCap.detailsId = number;
+                if (ordinal === 4) anchorCap.characterId = number;
+              }
+            }
             if (type === T_ASCII) onAscii(pos, ordinal);
-            else if (type === T_UTF16) onUtf16(pos);
+            else if (type === T_UTF16) onUtf16(pos, ordinal);
             else if (sKind[depth] === KIND_COMPRESSED_INFO && sCap[depth].size === null) sCap[depth].size = readUInt(seg, type, pos);
             pos += size;
           } else if (size === -2) {
@@ -386,7 +422,7 @@
     push(root.nameIdx, root.sizePos, root.sizeLen, root.sizeVal, -1, 0, 0);
     walkBody(root.bodyStart, seg.footerOffset);
     pop();
-    return { characters, compressed, stats };
+    return { characters, compressed, stats, metadata };
   }
 
   /**

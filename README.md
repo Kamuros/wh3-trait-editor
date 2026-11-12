@@ -1,50 +1,72 @@
 # WH3 Trait Editor
 
-Experimental browser-based innate trait editor for Total War: WARHAMMER III saves. This replaces the original Python command-line prototype; that version remains in Git history.
+A browser-based innate trait editor focused on your player faction in Total War: WARHAMMER III. Files are processed locally; no save or language file is uploaded.
 
-**Parsing and an edit/rebuild round trip have been checked against one real WH3 ABCB save. In-game loading remains unverified. Keep backups and use copies.** Character detection still includes heuristic field detection. Unknown node types are skipped within their record and reported in Diagnostics. Successful parsing or output verification does not prove game compatibility.
+**Parsing, faction selection, browser interaction and an edit/rebuild round trip have been checked with one real WH3 save. In-game loading remains unverified. Keep backups and use copies.**
 
-## Run locally
+## Use the editor
 
-Open `index.html` in a modern browser. No installation, Python, server, or build step is required. In VS Code, open the repository folder and open `index.html` in your browser, or use a local static preview extension.
-
-All save processing runs in your browser. The supplied scripts contain no save-upload functionality or external script dependencies.
-
-## Edit a save
-
-1. Back up your save, then choose or drop a `.save` file. Windows saves are normally in `%APPDATA%\The Creative Assembly\Warhammer3\save_games`.
-2. Review Diagnostics and check that the Faction, Type, and Subtype columns look correct. Use **Group trait pools by** to correct inferred grouping when needed.
-3. Filter characters and select an alternative innate trait.
-4. Click **Build, verify and download** to download an `_edited.save` copy.
-5. Load the copy in game, inspect the trait and its effects, then save and reload before relying on it.
-
-Choices come from innate traits already present on characters grouped under the same subtype in that save. This is a subset of available game traits, not a database-derived pool or proof of all eligibility restrictions. Early campaigns may offer few alternatives.
-
-The editor changes existing four-byte trait references. For compressed data, it rebuilds the affected compressed blocks, checks decompression against the intended bytes, and re-reads the finished output. Its custom LZMA encoder may produce larger files than the game does.
-
-## Files
-
-- `index.html`: interface
-- `style.css`: styling
-- `js/lzma.js`: raw LZMA codec
-- `js/esf.js`: ESF parsing and record scanning
-- `js/savefile.js`: save model, trait pools, editing and verification
-- `js/app.js`: file selection, filters and download handling
-
-## GitHub Pages (optional)
-
-In this repository’s **Settings → Pages**, choose **Deploy from a branch**, branch **main**, folder **/ (root)**, then **Save**. Once GitHub finishes deployment, the expected address is:
+Open `index.html` locally, or visit the repository’s GitHub Pages site:
 
 https://kamuros.github.io/wh3-trait-editor/
 
-Uploading these files does not itself enable GitHub Pages.
+1. Choose a `.save` file. The editor reads the local player faction from the save and shows its active heroes and lords with innate traits.
+2. Optionally load game language files to resolve character names, character types and traits. Without them, labels are simplified from IDs and unavailable names are marked explicitly.
+3. Choose a new trait, then **Verify and download edited save**.
+4. Load the edited copy in game and check the trait and its effects. Save and reload before relying on it.
 
-## Verification limits
+Windows saves are normally under `%APPDATA%\The Creative Assembly\Warhammer3\save_games`.
 
-Run `node tests/esf-format.cjs` for format regression checks. JavaScript syntax, synthetic compression cases, and one real ABCB save edit/rebuild round trip have passed. See [observed save structure and validation](docs/save-format.md) for details. Browser interaction and in-game loading remain unverified. The discovered family-tree records are not necessarily active heroes; faction display may be unknown. If loading fails or characters look wrong, capture Diagnostics.
+The default view excludes other factions, internal colonel records, and reserve/inactive records. Use **Include reserve / inactive records** to see additional records assigned to your faction. These may include recruitment candidates; their exact status is not inferred.
 
-Game saves and local environment files are excluded by `.gitignore`. No game data is included.
+Alternatives are innate traits observed on the same character subtype elsewhere in the save. This provides more options than restricting the pool to your own roster, but is not a complete database or proof of every game eligibility rule. Only your faction’s characters can be selected for editing in the interface.
+
+## Actual in-game names
+
+Saves often store `names_name_...` references instead of the displayed name. The editor cannot recover those names from an ID alone.
+
+Under **Show in-game names and trait labels**, select `local_en.pack` or the equivalent `local_*.pack` for your language from:
+
+`Steam/steamapps/common/Total War WARHAMMER III/data`
+
+Supported inputs:
+
+- Ordinary, unencrypted PFH5 language packs, including Zstandard-compressed `.loc` entries.
+- Exported `.loc` language tables (version 1).
+- RPFM localisation TSV exports with key and text in the first two columns.
+
+You can select multiple files. Later imported entries override earlier ones, allowing mod translations. The importer reads pack indexes and language entries rather than loading unrelated pack contents. Language tables are limited to 128 MB each. Encrypted or extended pack headers are rejected with an explanation; export their localisation tables instead.
+
+Language data stays in memory for the current page session. Explicit custom-name text in the save is used directly. Missing translations retain clearly identified fallbacks. Internal keys are available on hover and in Technical details.
+
+## Development and validation
+
+Plain HTML, CSS and JavaScript; no build step or package installation is needed. For a local HTTP preview:
+
+```sh
+python -m http.server 8000
+```
+
+Then open `http://localhost:8000`. In VS Code, a local static preview extension also works.
+
+Regression tests require Node.js 18 or newer:
+
+```sh
+node tests/esf-format.cjs
+node tests/player-faction.cjs
+node tests/localisation.cjs
+```
+
+Tests use synthetic fixtures, including compressed/uncompressed language packs, Unicode, name translation, current faction ownership, transferred characters, reserves and malformed data. The supplied real save was additionally checked locally for player-only display and verified export. No user save or game language data is included in the repository.
+
+See [observed save structure](docs/save-format.md) for format details and remaining limits. The original Python prototype remains in Git history.
+
+## GitHub Pages
+
+In **Settings → Pages**, choose **Deploy from a branch**, branch **main**, folder **/ (root)**, then **Save**. Future pushes to `main` update the site after deployment.
 
 ## License
 
-MIT; see [LICENSE](LICENSE). Unofficial fan tool, unaffiliated with Creative Assembly or Games Workshop.
+MIT; see [LICENSE](LICENSE). The bundled Zstandard decoder has its own [MIT notice](js/vendor/fzstd-LICENSE.txt); see [third-party dependencies](THIRD_PARTY.md).
+
+Unofficial fan tool, unaffiliated with Creative Assembly or Games Workshop.

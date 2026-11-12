@@ -3,81 +3,68 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TW: Warhammer III – Innate Trait Editor</title>
+  <title>WH3 · Your faction’s innate traits</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>Total War: Warhammer III – Innate Trait Editor</h1>
-    <p>Swap a hero's innate trait for one already rolled by the same character type in your save.
-       Everything runs in your browser; the file is never uploaded.</p>
+    <p class="eyebrow">TOTAL WAR: WARHAMMER III</p>
+    <h1>Your faction’s innate traits</h1>
+    <p>Choose a save, review your characters, and download an edited copy. Files stay in your browser.</p>
   </header>
-
   <main>
     <section class="card">
-      <h2>1. Open a save</h2>
-      <p>Saves are in <code>%APPDATA%\The Creative Assembly\Warhammer3\save_games</code>.
-         Keep a backup of the original file.</p>
+      <h2>1. Open your save</h2>
+      <p class="note">Keep the original as a backup. Edited saves still need to be checked in game.</p>
       <label class="drop" id="drop">
         <input type="file" id="file" accept=".save">
         <span>Choose a .save file or drop it here</span>
       </label>
-      <div id="progress" hidden>
-        <div class="bar"><div id="bar-fill"></div></div>
-        <span id="progress-label"></span>
-      </div>
+      <div id="progress" hidden><div class="bar"><div id="bar-fill"></div></div><span id="progress-label"></span></div>
       <p id="status" role="status"></p>
     </section>
-
     <section class="card" id="summary-section" hidden>
-      <h2>What was found</h2>
+      <p class="eyebrow">YOUR FACTION</p>
+      <h2 id="faction-name"></h2>
       <div id="summary"></div>
-      <label class="field">Group trait pools by
-        <select id="subtype-field"></select>
-      </label>
-      <details>
-        <summary>Diagnostics</summary>
-        <pre id="diagnostics"></pre>
+      <details id="language-panel" open>
+        <summary>Show in-game names and trait labels</summary>
+        <p>The save often stores name IDs, not the names shown in game. Select your game’s <code>local_en.pack</code> (or your language’s <code>local_*.pack</code>) from <code>Total War WARHAMMER III/data</code>. You can also select exported <code>.loc</code> or localisation <code>.tsv</code> files.</p>
+        <label class="field">Game language files <input type="file" id="language" accept=".pack,.loc,.tsv" multiple></label>
+        <p id="language-status" role="status">Without language files, trait and character-type labels are simplified from game IDs. Missing character names are marked “Name unavailable”.</p>
       </details>
     </section>
-
     <section class="card" id="edit-section" hidden>
       <h2>2. Choose traits</h2>
       <div class="filters">
-        <label>Show
-          <select id="role">
-            <option value="heroes">Heroes</option>
-            <option value="lords">Lords</option>
-            <option value="all">All</option>
-          </select>
-        </label>
-        <label>Faction <select id="faction"></select></label>
-        <label>Stored in <select id="location"></select></label>
-        <label>Search <input type="search" id="search" placeholder="subtype, trait, name…"></label>
-        <label class="check"><input type="checkbox" id="only-editable" checked> Only with alternatives</label>
+        <label>Characters <select id="role"><option value="all">Heroes and lords</option><option value="heroes">Heroes</option><option value="lords">Lords</option></select></label>
+        <label>Search <input type="search" id="search" placeholder="Character, type, or trait"></label>
+        <label class="check"><input type="checkbox" id="inactive"> Include reserve / inactive records</label>
       </div>
-      <p id="table-note" class="note"></p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Faction</th><th>Type</th><th>Subtype</th><th>Name hints</th><th>Current innate</th><th>Change to</th></tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
+      <p class="note">Only your faction’s records are listed. Alternatives are traits already found on the same character type elsewhere in this save; they are not a complete game database.</p>
+      <p id="table-note" role="status"></p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Character</th><th>Character type</th><th>Current trait</th><th>Change to</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
     </section>
-
     <section class="card" id="export-section" hidden>
-      <h2>3. Build the edited save</h2>
+      <h2>3. Download your edited save</h2>
       <p id="pending"></p>
-      <button id="build" disabled>Build, verify and download</button>
+      <button id="build" disabled>Verify and download edited save</button>
       <button id="reset" class="secondary">Clear changes</button>
       <p id="export-status" role="status"></p>
     </section>
+    <details class="card" id="technical-section" hidden>
+      <summary>Technical details</summary>
+      <p>Use these details when reporting a problem. Changing the grouping clears pending edits.</p>
+      <label class="field">Advanced: character-type field <select id="subtype-field"></select></label>
+      <pre id="diagnostics"></pre>
+    </details>
   </main>
-
-  <footer>Unofficial fan tool. Not affiliated with Creative Assembly or Games Workshop. Use at your own risk and keep backups.</footer>
-
+  <footer>Unofficial fan tool. Not affiliated with Creative Assembly or Games Workshop.</footer>
+  <script src="js/vendor/fzstd.js"></script>
+  <script src="js/localisation.js"></script>
   <script src="js/lzma.js"></script>
   <script src="js/esf.js"></script>
   <script src="js/savefile.js"></script>
