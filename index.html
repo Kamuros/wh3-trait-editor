@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TW: Warhammer III – Innate Trait Editor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Total War: Warhammer III – Innate Trait Editor</h1>
+    <p>Swap a hero's innate trait for one already rolled by the same character type in your save.
+       Everything runs in your browser; the file is never uploaded.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. Open a save</h2>
+      <p>Saves are in <code>%APPDATA%\The Creative Assembly\Warhammer3\save_games</code>.
+         Keep a backup of the original file.</p>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".save">
+        <span>Choose a .save file or drop it here</span>
+      </label>
+      <div id="progress" hidden>
+        <div class="bar"><div id="bar-fill"></div></div>
+        <span id="progress-label"></span>
+      </div>
+      <p id="status" role="status"></p>
+    </section>
+
+    <section class="card" id="summary-section" hidden>
+      <h2>What was found</h2>
+      <div id="summary"></div>
+      <label class="field">Group trait pools by
+        <select id="subtype-field"></select>
+      </label>
+      <details>
+        <summary>Diagnostics</summary>
+        <pre id="diagnostics"></pre>
+      </details>
+    </section>
+
+    <section class="card" id="edit-section" hidden>
+      <h2>2. Choose traits</h2>
+      <div class="filters">
+        <label>Show
+          <select id="role">
+            <option value="heroes">Heroes</option>
+            <option value="lords">Lords</option>
+            <option value="all">All</option>
+          </select>
+        </label>
+        <label>Faction <select id="faction"></select></label>
+        <label>Stored in <select id="location"></select></label>
+        <label>Search <input type="search" id="search" placeholder="subtype, trait, name…"></label>
+        <label class="check"><input type="checkbox" id="only-editable" checked> Only with alternatives</label>
+      </div>
+      <p id="table-note" class="note"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Faction</th><th>Type</th><th>Subtype</th><th>Name hints</th><th>Current innate</th><th>Change to</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="export-section" hidden>
+      <h2>3. Build the edited save</h2>
+      <p id="pending"></p>
+      <button id="build" disabled>Build, verify and download</button>
+      <button id="reset" class="secondary">Clear changes</button>
+      <p id="export-status" role="status"></p>
+    </section>
+  </main>
+
+  <footer>Unofficial fan tool. Not affiliated with Creative Assembly or Games Workshop. Use at your own risk and keep backups.</footer>
+
+  <script src="js/lzma.js"></script>
+  <script src="js/esf.js"></script>
+  <script src="js/savefile.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

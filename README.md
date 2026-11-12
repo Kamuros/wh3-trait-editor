@@ -1,60 +1,50 @@
-# WH3 Innate Editor
+# WH3 Trait Editor
 
-Experimental Python command-line tool for changing a character’s innate trait in a Total War: WARHAMMER III save.
+Experimental browser-based innate trait editor for Total War: WARHAMMER III saves. This replaces the original Python command-line prototype; that version remains in Git history.
 
-This repository preserves the AI-assisted prototype as supplied. It has **not been validated against a real WH3 save or in game**. Structural checks cannot establish that the format assumptions or resulting game effects are correct. Keep backups and work on copies.
+**Not validated against a real WH3 save or in game. Keep backups and use copies.** Parsing and character detection rely on unverified format assumptions, including heuristic field detection. Unknown node types are skipped within their record and reported in Diagnostics. Successful parsing or output verification does not prove game compatibility.
 
-## Requirements
+## Run locally
 
-Python 3.8 or newer with the standard-library `lzma` module. No third-party Python packages are required. RPFM is needed separately to export the game database tables used to build a trait pool.
+Open `index.html` in a modern browser. No installation, Python, server, or build step is required. In VS Code, open the repository folder and open `index.html` in your browser, or use a local static preview extension.
 
-## Usage
+All save processing runs in your browser. The supplied scripts contain no save-upload functionality or external script dependencies.
 
-Saves are normally under `%APPDATA%\The Creative Assembly\Warhammer3\save_games` on Windows. Replace example paths, character numbers, and trait keys with your own values.
+## Edit a save
 
-First inspect a copy of a save (read-only):
+1. Back up your save, then choose or drop a `.save` file. Windows saves are normally in `%APPDATA%\The Creative Assembly\Warhammer3\save_games`.
+2. Review Diagnostics and check that the Faction, Type, and Subtype columns look correct. Use **Group trait pools by** to correct inferred grouping when needed.
+3. Filter characters and select an alternative innate trait.
+4. Click **Build, verify and download** to download an `_edited.save` copy.
+5. Load the copy in game, inspect the trait and its effects, then save and reload before relying on it.
 
-```sh
-python wh3_innate.py inspect mysave.save
-```
+Choices come from innate traits already present on characters grouped under the same subtype in that save. This is a subset of available game traits, not a database-derived pool or proof of all eligibility restrictions. Early campaigns may offer few alternatives.
 
-In RPFM, export `character_skills_tables`, `character_skill_node_sets_tables`, and `character_skill_nodes_tables` from the game database to TSV files. Build a pool using those exports:
+The editor changes existing four-byte trait references. For compressed data, it rebuilds the affected compressed blocks, checks decompression against the intended bytes, and re-reads the finished output. Its custom LZMA encoder may produce larger files than the game does.
 
-```sh
-python wh3_innate.py build-pool --skills character_skills.tsv --node-sets character_skill_node_sets.tsv --nodes character_skill_nodes.tsv --out pool.json
-```
+## Files
 
-Each table argument accepts multiple exports, including mod exports. Pool construction excludes nodes restricted to a faction, subculture, or campaign; roll weights and gender restrictions are not evaluated.
+- `index.html`: interface
+- `style.css`: styling
+- `js/lzma.js`: raw LZMA codec
+- `js/esf.js`: ESF parsing and record scanning
+- `js/savefile.js`: save model, trait pools, editing and verification
+- `js/app.js`: file selection, filters and download handling
 
-List characters and inspect one character’s available traits:
+## GitHub Pages (optional)
 
-```sh
-python wh3_innate.py list mysave.save --pool pool.json --filter captain
-python wh3_innate.py list mysave.save --pool pool.json --char 137
-```
+In this repository’s **Settings → Pages**, choose **Deploy from a branch**, branch **main**, folder **/ (root)**, then **Save**. Once GitHub finishes deployment, the expected address is:
 
-Character numbers follow their order in that exact save. Use the subtype and name keys to identify the intended character.
+https://kamuros.github.io/wh3-trait-editor/
 
-Write an edited copy to a new filename, replacing `TRAIT_KEY` with a key shown by `list`:
+Uploading these files does not itself enable GitHub Pages.
 
-```sh
-python wh3_innate.py set mysave.save mysave_edited.save --pool pool.json --char 137 --trait TRAIT_KEY
-```
+## Verification limits
 
-The tool rejects an existing output filename, changes an ASCII string-table reference, rebuilds compression when needed, and re-parses the result before writing. These checks do not prove game compatibility.
+Repository preparation checks JavaScript syntax and synthetic compression cases. Browser interaction, real saves, inferred subtype accuracy, and in-game loading still require validation. If loading fails or the detected characters look wrong, capture the Diagnostics text.
 
-See command-specific options with `python wh3_innate.py COMMAND --help`.
+Game saves and local environment files are excluded by `.gitignore`. No game data is included.
 
-## Verification status
+## License
 
-| Area | Status |
-| --- | --- |
-| Python syntax and command help | Checked during repository preparation |
-| Pool generation | Checked with synthetic TSV fixtures only |
-| Parsing a real WH3 save | Unverified |
-| Pool accuracy against the game database | Unverified |
-| Edited save loads and applies trait effects | Unverified |
-
-The prototype assumes CAAB ESF containers, at most one LZMA `COMPRESSED_DATA` block containing a standalone ESF, and an innate skill key inside `CHARACTER_DETAILS`. Some node decoding rules are heuristic. Recompression and effect recalculation by the game remain unverified.
-
-Game saves, database exports, generated pools, and local environment files are excluded by `.gitignore`. No game data is included.
+MIT; see [LICENSE](LICENSE). Unofficial fan tool, unaffiliated with Creative Assembly or Games Workshop.
