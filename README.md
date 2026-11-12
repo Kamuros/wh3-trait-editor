@@ -39,6 +39,14 @@ You can select multiple files. Later imported entries override earlier ones, all
 
 Language data stays in memory for the current page session. Explicit custom-name text in the save is used directly. Missing translations retain clearly identified fallbacks. Internal keys are available on hover and in Technical details.
 
+## Compatibility and export feedback
+
+Only `v9.0.5 Build 51143.4399233` is currently enabled for editing, based on one structurally tested modded sample. Other builds or partially parsed saves are read-only. This does not establish in-game or mod/DLC compatibility.
+
+Export shows progress beside the button and keeps a **Download again** link until you change selections. Success confirms the file was prepared and download requested, not that the browser saved it to disk. Close the game before copying an edited save, keep backups, and consider cloud-sync conflicts. Selections exist only in the current tab.
+
+Limits: 64 MiB input, 256 MiB total expanded bytes, eight containers. Larger accepted files may take longer and use considerably more memory. See the [review, findings and performance targets](docs/review-2026-11-12.md).
+
 ## Development and validation
 
 Plain HTML, CSS and JavaScript; no build step or package installation is needed. For a local HTTP preview:
@@ -55,6 +63,7 @@ Regression tests require Node.js 18 or newer:
 node tests/esf-format.cjs
 node tests/player-faction.cjs
 node tests/localisation.cjs
+node tests/roundtrip.cjs
 ```
 
 Tests use synthetic fixtures, including compressed/uncompressed language packs, Unicode, name translation, current faction ownership, transferred characters, reserves and malformed data. The supplied real save was additionally checked locally for player-only display and verified export. No user save or game language data is included in the repository.
