@@ -1,0 +1,144 @@
+{
+  "beforeCommit": "e9aca7d8c06edf278b341a40ee3c3972ecbc18ff",
+  "afterCommit": "298fd608b5cafff5dc70f3071ac2c73d75631fd7",
+  "method": "Three runs per version, alternating order, fresh browser context per run. Same save and selected trait. One additional scheduler-disabled fallback run.",
+  "environment": "Chromium 156 on Linux, headless, shared cloud runner; no CPU throttling.",
+  "inputBytes": 10133100,
+  "expandedCampaignBytes": 82514992,
+  "allSevenOutputsByteIdentical": true,
+  "runs": [
+    {
+      "version": "before",
+      "run": 1,
+      "loadMs": 4062.5,
+      "exportMs": 11131.4,
+      "profile": {
+        "encode": 4510.7,
+        "decode": 5485.3,
+        "parseContainer": 27.1,
+        "scan": 621.9
+      },
+      "feedbackMs": null,
+      "maxTaskMs": 1005,
+      "longTasksOver500ms": 2,
+      "rows": 2,
+      "bytes": 10625729,
+      "errors": [],
+      "matchesReferenceBytes": true
+    },
+    {
+      "version": "final",
+      "run": 1,
+      "loadMs": 3448.9,
+      "exportMs": 7725.3,
+      "profile": {
+        "encode": 3984.1,
+        "parseContainer": 20.8,
+        "scan": 584.5,
+        "decode": 2523.8
+      },
+      "feedbackMs": 0.4,
+      "maxTaskMs": 662,
+      "longTasksOver500ms": 1,
+      "rows": 2,
+      "bytes": 10625729,
+      "errors": [],
+      "matchesReferenceBytes": true
+    },
+    {
+      "version": "final",
+      "run": 2,
+      "loadMs": 3340.4,
+      "exportMs": 7988.1,
+      "profile": {
+        "encode": 3923.4,
+        "parseContainer": 27.9,
+        "scan": 635.6,
+        "decode": 2800.2
+      },
+      "feedbackMs": 0.7,
+      "maxTaskMs": 802,
+      "longTasksOver500ms": 1,
+      "rows": 2,
+      "bytes": 10625729,
+      "errors": [],
+      "matchesReferenceBytes": true
+    },
+    {
+      "version": "before",
+      "run": 2,
+      "loadMs": 3486.9,
+      "exportMs": 10558.1,
+      "profile": {
+        "encode": 4212.6,
+        "decode": 5491,
+        "parseContainer": 19.8,
+        "scan": 563.6
+      },
+      "feedbackMs": null,
+      "maxTaskMs": 646,
+      "longTasksOver500ms": 2,
+      "rows": 2,
+      "bytes": 10625729,
+      "errors": [],
+      "matchesReferenceBytes": true
+    },
+    {
+      "version": "before",
+      "run": 3,
+      "loadMs": 3548.3,
+      "exportMs": 11036.1,
+      "profile": {
+        "encode": 4164.4,
+        "decode": 5897.3,
+        "parseContainer": 19.8,
+        "scan": 592.0
+      },
+      "feedbackMs": null,
+      "maxTaskMs": 763,
+      "longTasksOver500ms": 2,
+      "rows": 2,
+      "bytes": 10625729,
+      "errors": [],
+      "matchesReferenceBytes": true
+    },
+    {
+      "version": "final",
+      "run": 3,
+      "loadMs": 3457.8,
+      "exportMs": 9382.1,
+      "profile": {
+        "encode": 4615.1,
+        "parseContainer": 48.6,
+        "scan": 719.1,
+        "decode": 3470.7
+      },
+      "feedbackMs": 0.4,
+      "maxTaskMs": 879,
+      "longTasksOver500ms": 1,
+      "rows": 2,
+      "bytes": 10625729,
+      "errors": [],
+      "matchesReferenceBytes": true
+    },
+    {
+      "version": "fallback",
+      "run": 1,
+      "loadMs": 4215,
+      "exportMs": 9027.5,
+      "profile": {
+        "encode": 4705,
+        "parseContainer": 26.8,
+        "scan": 652.6,
+        "decode": 2945.6
+      },
+      "feedbackMs": 0.7,
+      "maxTaskMs": 732,
+      "longTasksOver500ms": 2,
+      "rows": 2,
+      "bytes": 10625729,
+      "errors": [],
+      "matchesReferenceBytes": true
+    }
+  ]
+}
