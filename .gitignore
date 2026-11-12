@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+*.save
+*.save.*
+*.pack
+*.tsv
+pool.json
+.DS_Store
